@@ -104,3 +104,92 @@ class SnakeEnv(gym.Env):
         self.previous_distance = current_distance
         
         return moving_toward
+    
+    def _number_to_direction(self, action: int) -> Direction:
+        """Convert AI action number back to Direction enum."""
+        if action == 0:
+            return Direction.UP
+        elif action == 1:
+            return Direction.DOWN
+        elif action == 2:
+            return Direction.LEFT
+        elif action == 3:
+            return Direction.RIGHT
+        else:
+            raise ValueError(f"Invalid action: {action}. Must be 0, 1, 2, or 3.")
+    
+    def reset(self, seed: Optional[int] = None) -> Tuple[np.ndarray, Dict[str, Any]]:
+        """Reset the environment to start a new episode."""
+        super().reset(seed=seed)
+        
+        # Reset the game
+        self.game.reset()
+        
+        # Reset episode tracking
+        self.step_count = 0
+        self.previous_distance = 0
+        
+        # Get initial observation
+        observation = self._get_observation()
+        
+        # Return observation and empty info dict
+        return observation, {}
+    
+    def step(self, action: int) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
+        """Take a step in the environment based on the AI's action."""
+        # Increment step counter
+        self.step_count += 1
+        
+        # Convert AI action to game direction
+        direction = self._number_to_direction(action)
+        
+        # Update game direction
+        self.game.direction = direction
+        
+        # Move the snake (this handles collision detection)
+        self.game._move_snake()
+        
+        # Check if episode is done
+        done = self.game.game_over or self.step_count >= self.max_steps
+        
+        # Calculate reward
+        reward = self._calculate_reward()
+        
+        # Get current observation
+        observation = self._get_observation()
+        
+        # Create info dictionary
+        info = {
+            'score': self.game.score,
+            'snake_length': len(self.game.snake),
+            'steps': self.step_count,
+            'distance_to_food': self._calculate_distance(self.game.snake[0], self.game.food)
+        }
+        
+        # Return: observation, reward, terminated, truncated, info
+        return observation, reward, done, False, info
+    
+    def _calculate_reward(self) -> float:
+        """Calculate the reward for the current state."""
+        reward = 0.0
+        
+        # Check if food was eaten this step
+        if len(self.game.snake) > 1:  # Snake grew (ate food)
+            reward += 10.0  # Big reward for eating food
+        
+        # Efficiency penalty (every step)
+        reward -= 0.1
+        
+        # Check if game over
+        if self.game.game_over:
+            reward -= 10.0  # Big penalty for dying
+        
+        return reward
+    
+    def render(self):
+        """Render the current game state."""
+        self.game._draw()
+    
+    def close(self):
+        """Clean up resources."""
+        pygame.quit()
