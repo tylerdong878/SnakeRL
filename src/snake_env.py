@@ -5,6 +5,7 @@ A Gymnasium environment wrapper for the Snake game.
 
 import gymnasium as gym
 import numpy as np
+import pygame
 from gymnasium import spaces
 from typing import Tuple, Dict, Any, Optional
 
