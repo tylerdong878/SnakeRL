@@ -24,8 +24,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--n-envs", type=int, default=16, help="number of parallel games to show")
     parser.add_argument("--cols", type=int, default=0, help="columns in the grid; 0=auto")
-    parser.add_argument("--tile-width", type=int, default=200)
-    parser.add_argument("--tile-height", type=int, default=200)
+    parser.add_argument("--window-width", type=int, default=600, help="overall window width")
+    parser.add_argument("--window-height", type=int, default=600, help="overall window height")
     parser.add_argument("--grid-size", type=int, default=20)
     parser.add_argument("--max-steps", type=int, default=500)
     parser.add_argument("--device", type=str, default="auto")
@@ -37,16 +37,18 @@ def parse_args() -> argparse.Namespace:
 
 
 class MultiGridRenderCallback(BaseCallback):
-    def __init__(self, n_envs: int, cols: int, tile_w: int, tile_h: int, fps: int):
+    def __init__(self, n_envs: int, cols: int, rows: int, window_w: int, window_h: int, tile_w: int, tile_h: int, fps: int):
         super().__init__()
         self.n_envs = n_envs
-        self.cols = cols if cols > 0 else int(math.ceil(math.sqrt(n_envs)))
-        self.rows = int(math.ceil(n_envs / self.cols))
+        self.cols = cols
+        self.rows = rows
+        self.window_w = window_w
+        self.window_h = window_h
         self.tile_w = tile_w
         self.tile_h = tile_h
         self.fps = fps
         pygame.init()
-        self.screen = pygame.display.set_mode((self.cols * tile_w, self.rows * tile_h))
+        self.screen = pygame.display.set_mode((self.window_w, self.window_h))
         pygame.display.set_caption("SnakeRL - Live Multi Training")
         self.clock = pygame.time.Clock()
 
@@ -92,14 +94,20 @@ def main() -> None:
     os.makedirs(args.log_dir, exist_ok=True)
     os.makedirs(os.path.dirname(args.model_path) or ".", exist_ok=True)
 
+    # Compute grid and tile sizes based on overall window size and env count
+    cols = args.cols if args.cols > 0 else int(math.ceil(math.sqrt(args.n_envs)))
+    rows = int(math.ceil(args.n_envs / cols))
+    tile_w = max(1, args.window_width // cols)
+    tile_h = max(1, args.window_height // rows)
+
     # Build vectorized envs that render rgb arrays (headless windows)
     env = make_vec_env(
         SnakeEnv,
         n_envs=args.n_envs,
         vec_env_cls=SubprocVecEnv,
         env_kwargs={
-            "width": args.tile_width,
-            "height": args.tile_height,
+            "width": tile_w,
+            "height": tile_h,
             "grid_size": args.grid_size,
             "render_mode": "rgb_array",
             "max_steps": args.max_steps,
@@ -120,9 +128,12 @@ def main() -> None:
 
     callback = MultiGridRenderCallback(
         n_envs=args.n_envs,
-        cols=args.cols,
-        tile_w=args.tile_width,
-        tile_h=args.tile_height,
+        cols=cols,
+        rows=rows,
+        window_w=args.window_width,
+        window_h=args.window_height,
+        tile_w=tile_w,
+        tile_h=tile_h,
         fps=args.fps,
     )
 
