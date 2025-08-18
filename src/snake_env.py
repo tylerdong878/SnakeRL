@@ -6,6 +6,7 @@ A Gymnasium environment wrapper for the Snake game.
 import gymnasium as gym
 import numpy as np
 import pygame
+import random
 from gymnasium import spaces
 from typing import Tuple, Dict, Any, Optional
 
@@ -19,8 +20,9 @@ class SnakeEnv(gym.Env):
     
     This wraps our SnakeGame class to provide a standard RL interface.
     """
+    metadata = {"render_modes": ["human", "rgb_array", "none"], "render_fps": 10}
     
-    def __init__(self, width: int = 800, height: int = 600, grid_size: int = 20):
+    def __init__(self, width: int = 800, height: int = 600, grid_size: int = 20, render_mode: Optional[str] = "human", max_steps: int = 1000):
         super().__init__()
         
         # Game setup
@@ -29,6 +31,7 @@ class SnakeEnv(gym.Env):
         self.grid_size = grid_size
         self.grid_width = width // grid_size
         self.grid_height = height // grid_size
+        self.render_mode = render_mode if render_mode in {"human", "rgb_array", "none", None} else "human"
         
         # Create the actual game instance
         self.game = SnakeGame(width, height, grid_size)
@@ -46,14 +49,9 @@ class SnakeEnv(gym.Env):
             dtype=np.int32
         )
         
-        # TODO: Define reward function
-        
         # Episode tracking
         self.step_count = 0
-        self.max_steps = 1000  # Prevent infinite episodes
-        
-        # Store previous distance for efficiency calculation
-        self.previous_distance = 0
+        self.max_steps = max_steps  # Prevent infinite episodes
     
     def _direction_to_number(self, direction: Direction) -> int:
         """Convert Direction enum to number for the AI."""
@@ -89,22 +87,7 @@ class SnakeEnv(gym.Env):
         x2, y2 = pos2
         return np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
     
-    def _is_moving_toward_food(self) -> bool:
-        """Check if snake is moving toward or away from food."""
-        current_distance = self._calculate_distance(self.game.snake[0], self.game.food)
-        
-        # If this is the first step, we can't compare
-        if self.previous_distance == 0:
-            self.previous_distance = current_distance
-            return False
-        
-        # Check if distance decreased (moving toward food)
-        moving_toward = current_distance < self.previous_distance
-        
-        # Update previous distance for next step
-        self.previous_distance = current_distance
-        
-        return moving_toward
+    
     
     def _number_to_direction(self, action: int) -> Direction:
         """Convert AI action number back to Direction enum."""
@@ -123,12 +106,16 @@ class SnakeEnv(gym.Env):
         """Reset the environment to start a new episode."""
         super().reset(seed=seed)
         
+        # Seed RNGs for reproducibility
+        if seed is not None:
+            np.random.seed(seed)
+            random.seed(seed)
+        
         # Reset the game
         self.game.reset()
         
         # Reset episode tracking
         self.step_count = 0
-        self.previous_distance = 0
         
         # Get initial observation
         observation = self._get_observation()
@@ -147,14 +134,21 @@ class SnakeEnv(gym.Env):
         # Update game direction
         self.game.direction = direction
         
+        # Track score before moving to detect food consumption on this step
+        previous_score = self.game.score
+        
         # Move the snake (this handles collision detection)
         self.game._move_snake()
         
-        # Check if episode is done
-        done = self.game.game_over or self.step_count >= self.max_steps
+        # Check episode status per Gymnasium API
+        terminated = self.game.game_over
+        truncated = self.step_count >= self.max_steps
+        
+        # Determine if food was eaten this step
+        food_eaten = self.game.score > previous_score
         
         # Calculate reward
-        reward = self._calculate_reward()
+        reward = self._calculate_reward(food_eaten)
         
         # Get current observation
         observation = self._get_observation()
@@ -168,28 +162,40 @@ class SnakeEnv(gym.Env):
         }
         
         # Return: observation, reward, terminated, truncated, info
-        return observation, reward, done, False, info
+        return observation, reward, terminated, truncated, info
     
-    def _calculate_reward(self) -> float:
+    def _calculate_reward(self, food_eaten: bool) -> float:
         """Calculate the reward for the current state."""
         reward = 0.0
         
-        # Check if food was eaten this step
-        if len(self.game.snake) > 1:  # Snake grew (ate food)
-            reward += 10.0  # Big reward for eating food
+        # Reward for eating food on this step
+        if food_eaten:
+            reward += 10.0
         
         # Efficiency penalty (every step)
         reward -= 0.1
         
         # Check if game over
         if self.game.game_over:
-            reward -= 10.0  # Big penalty for dying
+            reward -= 10.0
         
         return reward
     
     def render(self):
-        """Render the current game state."""
-        self.game._draw()
+        """Render the current game state according to render_mode."""
+        if self.render_mode in ("human", None):
+            self.game._draw()
+            return None
+        
+        if self.render_mode == "rgb_array":
+            # Draw first to ensure the frame is current
+            self.game._draw()
+            frame = pygame.surfarray.array3d(self.game.screen)
+            # Convert from (W, H, 3) to (H, W, 3)
+            return np.transpose(frame, (1, 0, 2))
+        
+        # "none" mode or unrecognized mode: no rendering
+        return None
     
     def close(self):
         """Clean up resources."""
