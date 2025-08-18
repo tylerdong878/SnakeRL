@@ -72,6 +72,8 @@ class SnakeGame:
         # Snake starts in the middle
         self.snake = [(self.grid_width // 2, self.grid_height // 2)]
         self.direction = Direction.RIGHT
+        self.last_direction = self.direction
+        self.input_queue: List[Direction] = []
         self.food = self._spawn_food()
         self.score = 0
         self.game_over = False
@@ -97,25 +99,49 @@ class SnakeGame:
                 sys.exit()
             
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP and self.direction != Direction.DOWN:
-                    self.direction = Direction.UP
-                elif event.key == pygame.K_DOWN and self.direction != Direction.UP:
-                    self.direction = Direction.DOWN
-                elif event.key == pygame.K_LEFT and self.direction != Direction.RIGHT:
-                    self.direction = Direction.LEFT
-                elif event.key == pygame.K_RIGHT and self.direction != Direction.LEFT:
-                    self.direction = Direction.RIGHT
+                if event.key == pygame.K_UP:
+                    self._queue_direction(Direction.UP)
+                elif event.key == pygame.K_DOWN:
+                    self._queue_direction(Direction.DOWN)
+                elif event.key == pygame.K_LEFT:
+                    self._queue_direction(Direction.LEFT)
+                elif event.key == pygame.K_RIGHT:
+                    self._queue_direction(Direction.RIGHT)
                 elif event.key == pygame.K_r:
                     self.reset()
                 elif event.key == pygame.K_ESCAPE:
                     pygame.quit()
                     sys.exit()
+
+    def _is_opposite(self, d1: Direction, d2: Direction) -> bool:
+        """Return True if directions are opposites."""
+        dx1, dy1 = d1.value
+        dx2, dy2 = d2.value
+        return dx1 == -dx2 and dy1 == -dy2
+
+    def _queue_direction(self, new_direction: Direction) -> None:
+        """Queue direction changes; apply one per tick; ignore 180° reversals vs current/queued."""
+        reference = self.input_queue[-1] if self.input_queue else self.last_direction
+        if self._is_opposite(new_direction, reference):
+            return
+        self.input_queue.append(new_direction)
     
     def _move_snake(self) -> None:
         """Move the snake in the current direction."""
         if self.game_over:
             return
         
+        # Apply at most one queued direction per tick (skip invalid reversals)
+        while self.input_queue:
+            candidate = self.input_queue.pop(0)
+            if not self._is_opposite(candidate, self.last_direction):
+                self.direction = candidate
+                break
+
+        # Disallow external 180° reversals (e.g., from AI/env) within the same tick
+        if self._is_opposite(self.direction, self.last_direction):
+            self.direction = self.last_direction
+
         # Get current head position
         head_x, head_y = self.snake[0]
         
@@ -138,6 +164,9 @@ class SnakeGame:
         else:
             # Remove tail if no food eaten
             self.snake.pop()
+
+        # Update last_direction after a successful move
+        self.last_direction = self.direction
     
     def _check_collision(self, position: Tuple[int, int]) -> bool:
         """Check if position collides with walls or snake."""
