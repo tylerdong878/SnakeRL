@@ -4,6 +4,7 @@ Evaluation script for a trained SnakeRL PPO model.
 
 import argparse
 import os
+import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from src.snake_env import SnakeEnv
@@ -46,18 +47,22 @@ def main() -> None:
 
     for ep in range(args.episodes):
         obs = env.reset()
-        terminated = truncated = False
+        done = False
         episode_score = 0
-        while not (terminated or truncated):
+        while not done:
             action, _ = model.predict(obs, deterministic=True)
-            obs, reward, terminated, truncated, infos = env.step(action)
-            # Unwrap info for single env
-            info = infos[0] if isinstance(infos, list) else infos
+            obs, rewards, dones, infos = env.step(action)
+            # VecEnv returns arrays; extract first env
+            done = bool(dones[0]) if hasattr(dones, "__len__") else bool(dones)
+            info = infos[0] if isinstance(infos, (list, tuple)) else infos
             episode_score = info.get("score", episode_score)
             if args.render:
-                env.render(mode="human")
+                # Render underlying env
+                try:
+                    env.envs[0].render()
+                except Exception:
+                    pass
         total_score += episode_score
-        # snake_length is not easily available through VecNormalize/DummyVecEnv infos at the end; print score only
         print(f"Episode {ep+1}: score={episode_score}")
 
     print(f"Average score over {args.episodes} eps: {total_score/args.episodes:.2f}")
