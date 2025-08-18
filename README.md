@@ -59,11 +59,11 @@ poetry run python src/train_watch.py --device auto --max-steps 1000 --chunk-step
 
 - Live training (multi-screen grid, auto-scaled tiles):
 ```powershell
-# 100 games in a window (auto grid/tiles)
-poetry run python src/train_watch_multi.py --n-envs 100 --device auto --model-path models/model_name
+# 36 games in a window (auto grid/tiles)
+poetry run python src/train_watch_multi.py --n-envs 36 --device auto --model-path models/model_name
 
 # Larger window or fixed columns
-poetry run python src/train_watch_multi.py --n-envs 100 --window-width 1200 --window-height 800 --cols 10
+poetry run python src/train_watch_multi.py --n-envs 36 --window-width 1200 --window-height 800 --cols 10
 ```
 
 - Evaluate a saved model (watch it play):

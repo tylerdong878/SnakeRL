@@ -22,7 +22,7 @@ class SnakeEnv(gym.Env):
     """
     metadata = {"render_modes": ["human", "rgb_array", "none"], "render_fps": 10}
     
-    def __init__(self, width: int = 600, height: int = 600, grid_size: int = 50, render_mode: Optional[str] = "human", max_steps: int = 1000):
+    def __init__(self, width: int = 1000, height: int = 1000, grid_size: int = 100, render_mode: Optional[str] = "human", max_steps: int = 1000):
         super().__init__()
         
         # Game setup
@@ -35,7 +35,9 @@ class SnakeEnv(gym.Env):
         
         # Create the actual game instance (headless for non-human modes)
         headless = self.render_mode != "human"
-        self.game = SnakeGame(width, height, grid_size, headless=headless)
+        # In rgb_array mode (used by multi-screen), hide HUD for clean tiles
+        show_hud = self.render_mode == "human"
+        self.game = SnakeGame(width, height, grid_size, headless=headless, show_hud=show_hud)
         
         # Define action space: 0=UP, 1=DOWN, 2=LEFT, 3=RIGHT
         self.action_space = spaces.Discrete(4)

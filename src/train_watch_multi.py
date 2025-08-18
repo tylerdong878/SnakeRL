@@ -24,8 +24,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--n-envs", type=int, default=16, help="number of parallel games to show")
     parser.add_argument("--cols", type=int, default=0, help="columns in the grid; 0=auto")
-    parser.add_argument("--window-width", type=int, default=600, help="overall window width")
-    parser.add_argument("--window-height", type=int, default=600, help="overall window height")
+    parser.add_argument("--window-width", type=int, default=1000, help="overall window width")
+    parser.add_argument("--window-height", type=int, default=1000, help="overall window height")
     parser.add_argument("--grid-size", type=int, default=20)
     parser.add_argument("--max-steps", type=int, default=500)
     parser.add_argument("--device", type=str, default="auto")
@@ -65,7 +65,7 @@ class MultiGridRenderCallback(BaseCallback):
         # Request frames from all envs (returns list of np arrays HxWx3)
         frames: List[np.ndarray] = self.training_env.env_method("render")  # type: ignore[attr-defined]
 
-        # Draw each frame into the grid
+        # Draw each frame into the grid with tile dividers
         self.screen.fill((0, 0, 0))
         for idx, frame in enumerate(frames):
             if frame is None:
@@ -77,6 +77,15 @@ class MultiGridRenderCallback(BaseCallback):
             if surf.get_width() != self.tile_w or surf.get_height() != self.tile_h:
                 surf = pygame.transform.scale(surf, (self.tile_w, self.tile_h))
             self.screen.blit(surf, (col * self.tile_w, row * self.tile_h))
+
+        # Draw grid lines (more visible)
+        grid_color = (90, 90, 90)
+        for c in range(1, self.cols):
+            x = c * self.tile_w
+            pygame.draw.line(self.screen, grid_color, (x, 0), (x, self.window_h), 2)
+        for r in range(1, self.rows):
+            y = r * self.tile_h
+            pygame.draw.line(self.screen, grid_color, (0, y), (self.window_w, y), 2)
 
         pygame.display.flip()
         self.clock.tick(self.fps)
