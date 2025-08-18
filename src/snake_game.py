@@ -4,6 +4,7 @@ A classic Snake game built with Pygame for reinforcement learning.
 """
 
 import pygame
+import os
 import random
 import sys
 from typing import List, Tuple, Optional
@@ -21,7 +22,7 @@ class Direction(Enum):
 class SnakeGame:
     """Main Snake game class."""
     
-    def __init__(self, width: int = 600, height: int = 600, grid_size: int = 50):
+    def __init__(self, width: int = 600, height: int = 600, grid_size: int = 50, headless: bool = False):
         """
         Initialize the Snake game.
         
@@ -29,7 +30,14 @@ class SnakeGame:
             width: Window width in pixels
             height: Window height in pixels
             grid_size: Size of each grid cell in pixels
+            headless: If True, do not create a visible window (for training)
         """
+        self.headless = headless
+        
+        # Use dummy video driver if headless to avoid opening a window
+        if self.headless:
+            os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+        
         pygame.init()
         
         # Game dimensions
@@ -40,9 +48,14 @@ class SnakeGame:
         self.grid_height = height // grid_size
         
         # Pygame setup
-        self.screen = pygame.display.set_mode((width, height))
-        pygame.display.set_caption("Snake Game - SnakeRL")
-        self.clock = pygame.time.Clock()
+        if self.headless:
+            # Offscreen surface for headless rendering
+            self.screen = pygame.Surface((width, height))
+            self.clock = pygame.time.Clock()
+        else:
+            self.screen = pygame.display.set_mode((width, height))
+            pygame.display.set_caption("Snake Game - SnakeRL")
+            self.clock = pygame.time.Clock()
         
         # Colors
         self.BLACK = (0, 0, 0)
@@ -76,6 +89,8 @@ class SnakeGame:
     
     def _handle_input(self) -> None:
         """Handle keyboard input."""
+        if self.headless:
+            return
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -181,7 +196,8 @@ class SnakeGame:
             self.screen.blit(game_over_text, game_over_rect)
             self.screen.blit(restart_text, restart_rect)
         
-        pygame.display.flip()
+        if not self.headless:
+            pygame.display.flip()
     
     def run(self) -> None:
         """Main game loop."""
