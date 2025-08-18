@@ -185,11 +185,25 @@ class SnakeEnv(gym.Env):
     def render(self):
         """Render the current game state according to render_mode."""
         if self.render_mode in ("human", None):
+            # Pump OS events to keep the window responsive
+            try:
+                pygame.event.pump()
+            except Exception:
+                pass
             self.game._draw()
+            # Cap to game FPS for normal-speed visualization
+            try:
+                self.game.clock.tick(self.game.fps)
+            except Exception:
+                pass
             return None
         
         if self.render_mode == "rgb_array":
             # Draw first to ensure the frame is current
+            try:
+                pygame.event.pump()
+            except Exception:
+                pass
             self.game._draw()
             frame = pygame.surfarray.array3d(self.game.screen)
             # Convert from (W, H, 3) to (H, W, 3)
