@@ -178,9 +178,14 @@ class SnakeGame:
         )
         pygame.draw.rect(self.screen, self.RED, food_rect)
         
-        # Draw score
+        # Draw score with a translucent background to avoid overlap readability issues
         font = pygame.font.Font(None, 36)
         score_text = font.render(f"Score: {self.score}", True, self.WHITE)
+        bg_w = score_text.get_width() + 8
+        bg_h = score_text.get_height() + 6
+        score_bg = pygame.Surface((bg_w, bg_h), pygame.SRCALPHA)
+        score_bg.fill((0, 0, 0, 150))
+        self.screen.blit(score_bg, (6, 6))
         self.screen.blit(score_text, (10, 10))
         
         # Draw game over message

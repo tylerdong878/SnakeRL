@@ -185,9 +185,12 @@ class SnakeEnv(gym.Env):
     def render(self):
         """Render the current game state according to render_mode."""
         if self.render_mode in ("human", None):
-            # Pump OS events to keep the window responsive
+            # Handle window events; allow closing with the X button
             try:
-                pygame.event.pump()
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        raise KeyboardInterrupt
             except Exception:
                 pass
             self.game._draw()
@@ -199,9 +202,12 @@ class SnakeEnv(gym.Env):
             return None
         
         if self.render_mode == "rgb_array":
-            # Draw first to ensure the frame is current
+            # Draw first to ensure the frame is current and handle events
             try:
-                pygame.event.pump()
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        raise KeyboardInterrupt
             except Exception:
                 pass
             self.game._draw()
