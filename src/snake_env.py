@@ -40,14 +40,12 @@ class SnakeEnv(gym.Env):
         # Define action space: 0=UP, 1=DOWN, 2=LEFT, 3=RIGHT
         self.action_space = spaces.Discrete(4)
         
-        # Define observation space: [head_x, head_y, food_x, food_y, direction, length]
-        # head_x, head_y, food_x, food_y: 0 to grid_size-1
-        # direction: 0,1,2,3 (UP,DOWN,LEFT,RIGHT)
-        # length: 1 to max possible length
+        # Define normalized observation space (float32 in [0,1])
+        # [head_x, head_y, food_x, food_y, direction, length]
         self.observation_space = spaces.Box(
-            low=np.array([0, 0, 0, 0, 0, 1]),
-            high=np.array([self.grid_width-1, self.grid_height-1, self.grid_width-1, self.grid_height-1, 3, 100]),
-            dtype=np.int32
+            low=np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32),
+            high=np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32),
+            dtype=np.float32,
         )
         
         # Episode tracking
@@ -68,19 +66,30 @@ class SnakeEnv(gym.Env):
             raise ValueError(f"Unknown direction: {direction}")
     
     def _get_observation(self) -> np.ndarray:
-        """Convert game state to observation array for the AI."""
-        # Get current positions
+        """Convert game state to normalized float32 observation array for the AI."""
+        # Current positions
         head_x, head_y = self.game.snake[0]
         food_x, food_y = self.game.food
         
-        # Convert direction to number
+        # Direction and length
         direction_num = self._direction_to_number(self.game.direction)
-        
-        # Get snake length
         length = len(self.game.snake)
         
-        # Return observation array: [head_x, head_y, food_x, food_y, direction, length]
-        return np.array([head_x, head_y, food_x, food_y, direction_num, length], dtype=np.int32)
+        # Normalization denominators (avoid division by zero)
+        max_x = max(1, self.grid_width - 1)
+        max_y = max(1, self.grid_height - 1)
+        max_dir = 3
+        max_len = max(1, self.grid_width * self.grid_height)
+        
+        obs = np.array([
+            head_x / max_x,
+            head_y / max_y,
+            food_x / max_x,
+            food_y / max_y,
+            direction_num / max_dir,
+            length / max_len,
+        ], dtype=np.float32)
+        return obs
     
     def _calculate_distance(self, pos1: Tuple[int, int], pos2: Tuple[int, int]) -> float:
         """Calculate Euclidean distance between two positions."""

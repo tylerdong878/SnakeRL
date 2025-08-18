@@ -5,6 +5,7 @@ Evaluation script for a trained SnakeRL PPO model.
 import argparse
 import os
 from stable_baselines3 import PPO
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from src.snake_env import SnakeEnv
 
 
@@ -21,7 +22,10 @@ def main() -> None:
     args = parse_args()
 
     render_mode = "human" if args.render else "none"
-    env = SnakeEnv(render_mode=render_mode, max_steps=args.max_steps)
+    # Wrap env to support VecNormalize stats if present
+    def make_env():
+        return SnakeEnv(render_mode=render_mode, max_steps=args.max_steps)
+    env = DummyVecEnv([make_env])
 
     if not os.path.exists(args.model_path):
         # Try without .zip if user passed folder-like path saved by SB3
@@ -30,20 +34,31 @@ def main() -> None:
     else:
         model = PPO.load(args.model_path)
 
+    # Try to load VecNormalize stats if they exist alongside the model
+    vecnorm_path = os.path.join(os.path.dirname(args.model_path), "vecnormalize.pkl")
+    if os.path.exists(vecnorm_path):
+        env = VecNormalize.load(vecnorm_path, env)
+        env.training = False
+        env.norm_reward = False
+
     total_score = 0
     total_length = 0
 
     for ep in range(args.episodes):
-        obs, _ = env.reset()
+        obs = env.reset()
         terminated = truncated = False
+        episode_score = 0
         while not (terminated or truncated):
             action, _ = model.predict(obs, deterministic=True)
-            obs, reward, terminated, truncated, info = env.step(action)
+            obs, reward, terminated, truncated, infos = env.step(action)
+            # Unwrap info for single env
+            info = infos[0] if isinstance(infos, list) else infos
+            episode_score = info.get("score", episode_score)
             if args.render:
-                env.render()
-        total_score += info["score"]
-        total_length += info["snake_length"]
-        print(f"Episode {ep+1}: score={info['score']} length={info['snake_length']}")
+                env.render(mode="human")
+        total_score += episode_score
+        # snake_length is not easily available through VecNormalize/DummyVecEnv infos at the end; print score only
+        print(f"Episode {ep+1}: score={episode_score}")
 
     print(f"Average score over {args.episodes} eps: {total_score/args.episodes:.2f}")
     print(f"Average length over {args.episodes} eps: {total_length/args.episodes:.2f}")

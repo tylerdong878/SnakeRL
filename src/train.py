@@ -10,6 +10,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import VecNormalize
 from src.snake_env import SnakeEnv
 
 
@@ -24,6 +25,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--n-envs", type=int, default=8)
     parser.add_argument("--device", type=str, default="auto", help='"cpu", "cuda", or "auto"')
     parser.add_argument("--chunk-steps", type=int, default=100_000, help="Learn in chunks when running indefinitely")
+    parser.add_argument("--vecnorm", action="store_true", help="Use VecNormalize for obs/reward normalization")
+    parser.add_argument("--vecnorm-path", type=str, default="models/vecnormalize.pkl")
     return parser.parse_args()
 
 
@@ -45,6 +48,10 @@ def main() -> None:
         env_kwargs={"render_mode": "none", "max_steps": args.max_steps},
         monitor_dir=args.log_dir,
     )
+
+    # Optional VecNormalize wrapper (normalize obs/rewards)
+    if args.vecnorm:
+        env = VecNormalize(env, training=True, norm_obs=True, norm_reward=True)
 
     # PPO on GPU/CPU (auto), tune a bit for vectorized envs
     model = PPO(
@@ -68,7 +75,11 @@ def main() -> None:
     except KeyboardInterrupt:
         pass
 
+    # Save model and VecNormalize stats (if enabled)
     model.save(args.model_path)
+    if args.vecnorm:
+        # Save running stats to load later for evaluation
+        env.save(args.vecnorm_path)
     env.close()
 
 
