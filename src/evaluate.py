@@ -15,7 +15,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model-path", type=str, default="models/snake_ppo.zip")
     parser.add_argument("--episodes", type=int, default=5)
     parser.add_argument("--render", action="store_true")
-    parser.add_argument("--max-steps", type=int, default=1000)
+    # 0 disables truncation so the snake can play indefinitely unless it dies
+    parser.add_argument("--max-steps", type=int, default=0)
     return parser.parse_args()
 
 

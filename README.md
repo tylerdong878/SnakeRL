@@ -120,7 +120,7 @@ poetry run python src/evaluate.py --model-path models/model_name.zip --episodes 
 - **--device**: cpu | cuda | auto
 - **--total-timesteps**: finite run (saves model when complete)
 - **--chunk-steps**: chunk size for indefinite training loops
-- **--max-steps**: per-episode step cap in the env (truncates episode)
+- **--max-steps**: per-episode step cap in the env (truncates episode). Set 0 to disable (unlimited; ends only on death).
 - **--model-path**: base path for the saved model (.zip appended)
 - **--window-width/--window-height** (multi-screen): size of grid window; tiles auto-scale
 - **--cols** (multi-screen): force grid columns (otherwise auto)

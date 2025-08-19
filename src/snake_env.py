@@ -52,7 +52,8 @@ class SnakeEnv(gym.Env):
         
         # Episode tracking
         self.step_count = 0
-        self.max_steps = max_steps  # Prevent infinite episodes
+        # Per-episode step cap. Set to 0 to disable truncation (death-only termination)
+        self.max_steps = max_steps
     
     def _direction_to_number(self, direction: Direction) -> int:
         """Convert Direction enum to number for the AI."""
@@ -154,7 +155,8 @@ class SnakeEnv(gym.Env):
         
         # Check episode status per Gymnasium API
         terminated = self.game.game_over
-        truncated = self.step_count >= self.max_steps
+        # If max_steps == 0, do not truncate by steps (unlimited steps)
+        truncated = self.max_steps > 0 and self.step_count >= self.max_steps
         
         # Determine if food was eaten this step
         food_eaten = self.game.score > previous_score

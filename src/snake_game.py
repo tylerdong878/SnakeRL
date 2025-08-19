@@ -139,8 +139,8 @@ class SnakeGame:
                 self.direction = candidate
                 break
 
-        # Disallow external 180° reversals (e.g., from AI/env) within the same tick
-        if self._is_opposite(self.direction, self.last_direction):
+        # Disallow external 180° reversals only when snake length > 1
+        if len(self.snake) > 1 and self._is_opposite(self.direction, self.last_direction):
             self.direction = self.last_direction
 
         # Get current head position
