@@ -35,12 +35,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--episodes", type=int, default=1000000)
     # 0 disables truncation so the snake can play indefinitely unless it dies
     parser.add_argument("--max-steps", type=int, default=0)
+    # Board size configuration
+    parser.add_argument("--width", type=int, default=1000, help="Board width in pixels")
+    parser.add_argument("--height", type=int, default=1000, help="Board height in pixels")
+    parser.add_argument("--grid-size", type=int, default=100, help="Grid cell size in pixels")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    env = SnakeEnv(render_mode="human", max_steps=args.max_steps)
+    env = SnakeEnv(
+        width=args.width,
+        height=args.height, 
+        grid_size=args.grid_size,
+        render_mode="human", 
+        max_steps=args.max_steps
+    )
 
     last_loaded: Optional[str] = None
     model: Optional[PPO] = None

@@ -69,6 +69,18 @@ poetry run python src/train_watch_multi.py --n-envs 36 --window-width 1200 --win
 - Evaluate a saved model (watch it play):
 ```powershell
 poetry run python src/evaluate.py --model-path models/model_name.zip --episodes 5 --render
+
+# Watch with custom board size
+poetry run python src/evaluate.py --model-path models/model_name.zip --episodes 10 --render --width 500 --height 500 --grid-size 50
+```
+
+- Watch a trained model play (with custom board size):
+```powershell
+# Small 20x20 grid for quick games
+poetry run python src/watch.py --width 400 --height 400 --grid-size 20
+
+# Large 50x50 grid for longer games
+poetry run python src/watch.py --width 1000 --height 1000 --grid-size 20
 ```
 
 - TensorBoard (metrics):
@@ -115,6 +127,27 @@ poetry run python src/train.py \
 poetry run python src/evaluate.py --model-path models/model_name.zip --episodes 5 --render
 ```
 
+## Reward shaping (configurable)
+Defaults in the env:
+- Food eaten: +10.0
+- Per-step: -0.1
+- Death: -10.0
+
+Optional (off by default; enable via flags in training):
+- Distance shaping (`--distance-shaping X`): +X when moving closer to food, -X when moving away.
+- Dynamic food scaling (`--dynamic-food-length-scale K`): scales food reward by (1 + length/K).
+- Efficiency bonus (`--efficiency-bonus-coeff C`): adds C * (1/steps_since_last_food) on eating.
+
+Example training with shaping:
+```powershell
+poetry run python src/train.py \
+  --n-envs 8 --device auto --chunk-steps 200000 \
+  --reward-food 10 --reward-death -100 --reward-step -0.1 \
+  --distance-shaping 0.1 \
+  --dynamic-food-length-scale 10 \
+  --efficiency-bonus-coeff 5
+```
+
 ## Key CLI flags
 - **--n-envs**: number of parallel envs (CPU). More = faster (up to your cores)
 - **--device**: cpu | cuda | auto
@@ -122,9 +155,17 @@ poetry run python src/evaluate.py --model-path models/model_name.zip --episodes 
 - **--chunk-steps**: chunk size for indefinite training loops
 - **--max-steps**: per-episode step cap in the env (truncates episode). Set 0 to disable (unlimited; ends only on death).
 - **--model-path**: base path for the saved model (.zip appended)
+- **--width/--height/--grid-size**: board dimensions in pixels (default: 1000x1000 with 100px grid)
 - **--window-width/--window-height** (multi-screen): size of grid window; tiles auto-scale
 - **--cols** (multi-screen): force grid columns (otherwise auto)
 - **--vecnorm/--vecnorm-path**: enable VecNormalize and set stats file path
+- **Reward shaping** (training):
+  - `--reward-food`: base reward for eating food (default 10.0)
+  - `--reward-step`: per-step penalty (default -0.1)
+  - `--reward-death`: penalty on death (default -10.0)
+  - `--distance-shaping`: +/- when moving closer/farther from food (default 0.0 = off)
+  - `--dynamic-food-length-scale`: scale food reward by (1 + length/K) (default 0.0 = off)
+  - `--efficiency-bonus-coeff`: add C*(1/steps_since_last_food) on eating (default 0.0 = off)
 
 ## Controls (manual game)
 - Arrow keys: move

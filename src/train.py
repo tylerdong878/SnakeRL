@@ -27,6 +27,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--chunk-steps", type=int, default=100_000, help="Learn in chunks when running indefinitely")
     parser.add_argument("--vecnorm", action="store_true", help="Use VecNormalize for obs/reward normalization")
     parser.add_argument("--vecnorm-path", type=str, default="models/vecnormalize.pkl")
+    # Reward shaping flags
+    parser.add_argument("--reward-food", type=float, default=10.0)
+    parser.add_argument("--reward-step", type=float, default=-0.1)
+    parser.add_argument("--reward-death", type=float, default=-10.0)
+    parser.add_argument("--distance-shaping", type=float, default=0.0)
+    parser.add_argument("--dynamic-food-length-scale", type=float, default=0.0)
+    parser.add_argument("--efficiency-bonus-coeff", type=float, default=0.0)
     return parser.parse_args()
 
 
@@ -45,7 +52,16 @@ def main() -> None:
         n_envs=args.n_envs,
         seed=args.seed,
         vec_env_cls=SubprocVecEnv,
-        env_kwargs={"render_mode": "none", "max_steps": args.max_steps},
+        env_kwargs={
+            "render_mode": "none",
+            "max_steps": args.max_steps,
+            "reward_food": args.reward_food,
+            "reward_step": args.reward_step,
+            "reward_death": args.reward_death,
+            "distance_shaping": args.distance_shaping,
+            "dynamic_food_length_scale": args.dynamic_food_length_scale,
+            "efficiency_bonus_coeff": args.efficiency_bonus_coeff,
+        },
         monitor_dir=args.log_dir,
     )
 

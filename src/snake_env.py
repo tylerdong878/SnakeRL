@@ -22,7 +22,11 @@ class SnakeEnv(gym.Env):
     """
     metadata = {"render_modes": ["human", "rgb_array", "none"], "render_fps": 10}
     
-    def __init__(self, width: int = 1000, height: int = 1000, grid_size: int = 100, render_mode: Optional[str] = "human", max_steps: int = 1000):
+    def __init__(self, width: int = 1000, height: int = 1000, grid_size: int = 100, render_mode: Optional[str] = "human", max_steps: int = 1000,
+                 reward_food: float = 10.0, reward_step: float = -0.1, reward_death: float = -10.0,
+                 distance_shaping: float = 0.0,
+                 dynamic_food_length_scale: float = 0.0,
+                 efficiency_bonus_coeff: float = 0.0):
         super().__init__()
         
         # Game setup
@@ -54,6 +58,18 @@ class SnakeEnv(gym.Env):
         self.step_count = 0
         # Per-episode step cap. Set to 0 to disable truncation (death-only termination)
         self.max_steps = max_steps
+
+        # Reward configuration
+        self.reward_food = reward_food
+        self.reward_step = reward_step
+        self.reward_death = reward_death
+        self.distance_shaping = distance_shaping
+        self.dynamic_food_length_scale = dynamic_food_length_scale
+        self.efficiency_bonus_coeff = efficiency_bonus_coeff
+
+        # Internal shaping state
+        self.steps_since_last_food = 0
+        self.last_distance_to_food: float = 0.0
     
     def _direction_to_number(self, direction: Direction) -> int:
         """Convert Direction enum to number for the AI."""
@@ -129,6 +145,8 @@ class SnakeEnv(gym.Env):
         
         # Reset episode tracking
         self.step_count = 0
+        self.steps_since_last_food = 0
+        self.last_distance_to_food = self._calculate_distance(self.game.snake[0], self.game.food)
         
         # Get initial observation
         observation = self._get_observation()
@@ -162,7 +180,37 @@ class SnakeEnv(gym.Env):
         food_eaten = self.game.score > previous_score
         
         # Calculate reward
-        reward = self._calculate_reward(food_eaten)
+        reward = 0.0
+        if food_eaten:
+            # Base food reward with optional dynamic scaling by length
+            food_reward = self.reward_food
+            if self.dynamic_food_length_scale and self.dynamic_food_length_scale > 0.0:
+                food_reward *= (1.0 + (len(self.game.snake) / self.dynamic_food_length_scale))
+            # Efficiency bonus: larger when food eaten quickly
+            if self.efficiency_bonus_coeff and self.efficiency_bonus_coeff > 0.0:
+                food_reward += self.efficiency_bonus_coeff * (1.0 / max(1, self.steps_since_last_food))
+            reward += food_reward
+            self.steps_since_last_food = 0
+        else:
+            self.steps_since_last_food += 1
+
+        # Step penalty every step
+        reward += self.reward_step
+
+        # Death penalty
+        if self.game.game_over:
+            reward += self.reward_death
+
+        # Distance-based shaping: reward moving closer; penalize moving away
+        if self.distance_shaping and self.distance_shaping != 0.0:
+            current_distance = self._calculate_distance(self.game.snake[0], self.game.food)
+            if current_distance < self.last_distance_to_food:
+                reward += abs(self.distance_shaping)
+            elif current_distance > self.last_distance_to_food:
+                reward -= abs(self.distance_shaping)
+            self.last_distance_to_food = current_distance
+
+        # (safety margin penalty removed)
         
         # Get current observation
         observation = self._get_observation()
